@@ -62,7 +62,48 @@ button {
   word-break: break-word;  /* break long words */
   padding-right: 5px;
 }
-  
+  /* 🔄 Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  height: 60px;
+  border-radius: 12px;
+  margin: 10px 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ✨ Fade in */
+.card {
+  animation: fadeIn 0.4s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 🗑 Delete animation */
+.card.removing {
+  animation: removeAnim 0.3s forwards;
+}
+
+@keyframes removeAnim {
+  to {
+    opacity: 0;
+    transform: translateX(100px) scale(0.9);
+  }
+}
+
+/* 👆 Button press effect */
+button:active {
+  transform: scale(0.95);
+}
 </style>
 </head>
 
@@ -83,8 +124,13 @@ const API = "https://script.google.com/macros/s/AKfycbwLUPGgV7ig_2lygVuZmGIJqKC0
 // 🔄 LOAD DATA
 async function loadData() {
   const list = document.getElementById("list");
-  list.innerHTML = "Loading...";
 
+// 🔥 skeleton loading UI
+list.innerHTML = `
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+`;
   try {
     const res = await fetch(API + "?t=" + Date.now(), {
       method: "GET",
@@ -119,8 +165,7 @@ async function loadData() {
 
       const del = document.createElement("button");
       del.innerText = "Delete";
-      del.onclick = () => deleteItem(id);
-
+      delBtn.onclick = () => deleteItem(id, delBtn);
       card.appendChild(p);
       card.appendChild(del);
       list.appendChild(card);
@@ -153,11 +198,19 @@ async function addItem() {
 }
 
 // 🗑 DELETE ITEM
-async function deleteItem(id) {
-  let url = API + "?action=delete&id=" + id;
+async function deleteItem(id, btn) {
+  const card = btn.parentElement;
 
-  await fetch(url, { mode: "no-cors" }); // 🔥 IMPORTANT
-  loadData();
+  // 🔥 animate first
+  card.classList.add("removing");
+
+  setTimeout(async () => {
+    let url = API + "?action=delete&id=" + id;
+
+    await fetch(url, { mode: "no-cors" });
+
+    card.remove(); // remove from UI
+  }, 300);
 }
 
 // Initial load
