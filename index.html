@@ -81,27 +81,29 @@ button {
 const API = "https://script.google.com/macros/s/AKfycbwLUPGgV7ig_2lygVuZmGIJqKC0r936b9iY8R_EncExu9rReTT3_U9pd3_3sqvlVqQXhA/exec"; // paste your Apps Script URL
 
 // 🔄 LOAD DATA
-async function loadData(retry = 0) {
+async function loadData() {
   const list = document.getElementById("list");
   list.innerHTML = "Loading...";
 
   try {
-    const res = await fetch(API + "?t=" + Date.now());
+    const res = await fetch(API + "?t=" + Date.now(), {
+      method: "GET",
+      redirect: "follow"
+    });
 
     const text = await res.text();
-    console.log("RAW:", text);
 
-    let data;
+    console.log("RAW RESPONSE:", text);
 
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Invalid JSON");
+    if (!text || text.startsWith("<!DOCTYPE")) {
+      throw new Error("Invalid response");
     }
+
+    const data = JSON.parse(text);
 
     list.innerHTML = "";
 
-    if (!data || data.length === 0) {
+    if (!data.length) {
       list.innerHTML = "No data yet";
       return;
     }
@@ -109,27 +111,29 @@ async function loadData(retry = 0) {
     data.reverse().forEach(item => {
       const [id, content] = item;
 
-      let card = document.createElement("div");
+      const card = document.createElement("div");
       card.className = "card";
 
-      card.innerHTML = `<p>${content}</p>`;
+      const p = document.createElement("p");
+      p.innerText = content;
 
-      let delBtn = document.createElement("button");
-      delBtn.innerText = "Delete";
-      delBtn.onclick = () => deleteItem(id);
+      const del = document.createElement("button");
+      del.innerText = "Delete";
+      del.onclick = () => deleteItem(id);
 
-      card.appendChild(delBtn);
+      card.appendChild(p);
+      card.appendChild(del);
       list.appendChild(card);
     });
 
   } catch (err) {
-    console.log("Fetch failed, retrying...");
+    console.error("FETCH ERROR:", err);
 
-    if (retry < 3) {
-      setTimeout(() => loadData(retry + 1), 1000);
-    } else {
-      list.innerHTML = "Temporary fetch issue";
-    }
+    // 🔥 fallback retry
+    setTimeout(() => {
+      list.innerHTML = "Retrying...";
+      loadData();
+    }, 1500);
   }
 }
 // ➕ ADD ITEM
