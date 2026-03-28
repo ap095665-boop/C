@@ -192,22 +192,28 @@ list.innerHTML = `
     }
 
     data.reverse().forEach(item => {
-  const [id, content] = item;
+  const [id, rawContent] = item;
+
+  const content = String(rawContent || "");
 
   const card = document.createElement("div");
   card.className = "card";
 
-  let contentEl;
+  const contentEl = document.createElement("p");
 
-  if (content.startsWith("http")) {
-    contentEl = document.createElement("a");
-    contentEl.href = content;
-    contentEl.target = "_blank";
-    contentEl.innerText = content;
-  } else {
-    contentEl = document.createElement("p");
-    contentEl.innerText = content;
-  }
+  // 🔥 SMART LINK DETECTION
+  const formatted = content.replace(
+    /(https?:\/\/[^\s]+|www\.[^\s]+)/g,
+    (url) => {
+      let link = url;
+      if (!url.startsWith("http")) {
+        link = "https://" + url;
+      }
+      return `<a href="${link}" target="_blank">${url}</a>`;
+    }
+  );
+
+  contentEl.innerHTML = formatted;
 
   const del = document.createElement("button");
   del.innerText = "Delete";
