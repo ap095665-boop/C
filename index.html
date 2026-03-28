@@ -117,7 +117,8 @@ async function addItem() {
   let url = API + "?action=add&content=" + encodeURIComponent(text) + "&type=" + (text.startsWith("http") ? "link" : "text");
 
   try {
-    await fetch(url);
+    await fetch(url, { mode: "no-cors" }); // 🔥 IMPORTANT FIX
+    alert("Added!");
     loadData();
   } catch (err) {
     alert("Error adding data");
@@ -128,7 +129,7 @@ async function addItem() {
 async function deleteItem(id) {
   let url = API + "?action=delete&id=" + id;
 
-  await fetch(url);
+  await fetch(url, { mode: "no-cors" }); // 🔥 IMPORTANT
   loadData();
 }
 
