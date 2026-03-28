@@ -71,19 +71,20 @@ button {
 <button class="fab" onclick="addItem()">+</button>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyxkA1C-2RJs8eSc2TzuGOm9XQzSwlkxJNnhJhDnVrgfDNGrJ2VqqPvrDiFrXC6qGdy6A/exec"; // paste your Apps Script URL
+const API = "https://script.google.com/macros/s/AKfycbwLUPGgV7ig_2lygVuZmGIJqKC0r936b9iY8R_EncExu9rReTT3_U9pd3_3sqvlVqQXhA/exec"; // paste your Apps Script URL
 
 // 🔄 LOAD DATA
 async function loadData() {
+  const list = document.getElementById("list");
+  list.innerHTML = "Loading...";
+
   try {
-    const res = await fetch(API + "?t=" + Date.now());
+    const res = await fetch(API + "?t=" + Date.now()); // prevent cache
+    const data = await res.json();
 
-    const data = await res.json(); // 🔥 now safe
-
-    const list = document.getElementById("list");
     list.innerHTML = "";
 
-    if (data.length === 0) {
+    if (!data || data.length === 0) {
       list.innerHTML = "No data yet";
       return;
     }
@@ -94,12 +95,14 @@ async function loadData() {
       let card = document.createElement("div");
       card.className = "card";
 
+      // show content
       if (content.startsWith("http")) {
         card.innerHTML += `<a href="${content}" target="_blank">${content}</a>`;
       } else {
         card.innerHTML += `<p>${content}</p>`;
       }
 
+      // delete button
       let delBtn = document.createElement("button");
       delBtn.innerText = "Delete";
       delBtn.className = "delete";
@@ -111,7 +114,7 @@ async function loadData() {
 
   } catch (err) {
     console.error(err);
-    document.getElementById("list").innerHTML = "Error loading data";
+    list.innerHTML = "Error loading data";
   }
 }
 // ➕ ADD ITEM
