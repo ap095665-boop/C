@@ -197,17 +197,24 @@ list.innerHTML = `
   const card = document.createElement("div");
   card.className = "card";
 
-  const p = document.createElement("p");
-  p.innerText = content;
+  let contentEl;
+
+  if (content.startsWith("http")) {
+    contentEl = document.createElement("a");
+    contentEl.href = content;
+    contentEl.target = "_blank";
+    contentEl.innerText = content;
+  } else {
+    contentEl = document.createElement("p");
+    contentEl.innerText = content;
+  }
 
   const del = document.createElement("button");
   del.innerText = "Delete";
   del.className = "delete";
-
-  // ✅ FIXED
   del.onclick = () => deleteItem(id, del);
 
-  card.appendChild(p);
+  card.appendChild(contentEl);
   card.appendChild(del);
   list.appendChild(card);
 });
