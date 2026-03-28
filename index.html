@@ -76,21 +76,27 @@ const API = "https://script.google.com/macros/s/AKfycbyxkA1C-2RJs8eSc2TzuGOm9XQz
 // 🔄 LOAD DATA
 async function loadData() {
   try {
-    const res = await fetch(API);
-    const text = await res.text();
+    const res = await fetch(API + "?t=" + Date.now()); // 🔥 prevents cache
 
-    // 🛑 check if valid JSON
+    const text = await res.text();
+    console.log("RAW RESPONSE:", text);
+
     let data;
+
     try {
       data = JSON.parse(text);
     } catch {
-      console.log("Not JSON:", text);
-      document.getElementById("list").innerHTML = "No data yet";
+      document.getElementById("list").innerHTML = "Error loading data";
       return;
     }
 
     const list = document.getElementById("list");
     list.innerHTML = "";
+
+    if (data.length === 0) {
+      list.innerHTML = "No data yet";
+      return;
+    }
 
     data.reverse().forEach(item => {
       const [id, content] = item;
@@ -115,10 +121,9 @@ async function loadData() {
 
   } catch (err) {
     console.error(err);
-    document.getElementById("list").innerHTML = "Error loading data";
+    document.getElementById("list").innerHTML = "Fetch failed";
   }
 }
-
 // ➕ ADD ITEM
 async function addItem() {
   let text = prompt("Enter text or link:");
