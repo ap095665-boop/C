@@ -7,9 +7,9 @@
 <style>
 body {
   font-family: Arial;
-  margin: 0;
   background: #0f172a;
   color: white;
+  margin: 0;
 }
 
 header {
@@ -23,6 +23,7 @@ button {
   padding: 10px;
   border: none;
   border-radius: 10px;
+  cursor: pointer;
 }
 
 .refresh {
@@ -40,14 +41,9 @@ button {
   border-radius: 15px;
 }
 
-.preview img {
-  width: 100%;
-  border-radius: 10px;
-}
-
 .delete {
   background: red;
-  margin-top: 5px;
+  margin-top: 8px;
 }
 
 .fab {
@@ -75,97 +71,94 @@ button {
 <button class="fab" onclick="addItem()">+</button>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyWpdUEJDGLt5_FcvWD2DnnEkNOLSR7YcS1MwJ_YN0HUeVNByGRlFjcn0O07JLyKZk4qQ/exec";
+const API = "YOUR_WEB_APP_URL"; // 👈 paste your Apps Script URL here
 
-function isLink(text) {
-  return text.startsWith("http");
-}
-
-async function fetchPreview(url) {
+// Load data from Google Sheet
+async function loadData() {
   try {
-    let res = await fetch("https://api.microlink.io/?url=" + encodeURIComponent(url));
-    let data = await res.json();
-    return data.data;
-  } catch {
-    return null;
+    const res = await fetch(API);
+    const data = await res.json();
+
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    data.reverse().forEach(item => {
+      const [id, content] = item;
+
+      let card = document.createElement("div");
+      card.className = "card";
+
+      if (content.startsWith("http")) {
+        card.innerHTML += `<a href="${content}" target="_blank">${content}</a>`;
+      } else {
+        card.innerHTML += `<p>${content}</p>`;
+      }
+
+      let delBtn = document.createElement("button");
+      delBtn.innerText = "Delete";
+      delBtn.className = "delete";
+      delBtn.onclick = () => deleteItem(id);
+
+      card.appendChild(delBtn);
+      list.appendChild(card);
+    });
+
+  } catch (err) {
+    console.error(err);
+    alert("Error loading data");
   }
 }
 
-async function loadData() {
-  const res = await fetch(API);
-  const data = await res.json();
-
-  localStorage.setItem("backup", JSON.stringify(data));
-  render(data.reverse());
-}
-
-function render(data) {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-
-  data.forEach(async item => {
-    const [id, content] = item;
-
-    let html = `<div class="card">`;
-
-    if (isLink(content)) {
-      const preview = await fetchPreview(content);
-
-      if (preview) {
-        html += `
-          <div class="preview">
-            <img src="${preview.image?.url || ''}">
-            <p>${preview.title}</p>
-            <a href="${content}" target="_blank">${content}</a>
-          </div>
-        `;
-      } else {
-        html += `<a href="${content}" target="_blank">${content}</a>`;
-      }
-    } else {
-      html += `<p>${content}</p>`;
-    }
-
-    html += `<button class="delete" onclick="deleteItem('${id}')">Delete</button>`;
-    html += `</div>`;
-
-    list.innerHTML += html;
-  });
-}
-
+// Add new item
 async function addItem() {
   let text = prompt("Enter text or link:");
   if (!text) return;
 
-  await fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "add",
-      content: text,
-      type: isLink(text) ? "link" : "text"
-    })
-  });
+  try {
+    await fetch(API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "add",
+        content: text,
+        type: text.startsWith("http") ? "link" : "text"
+      })
+    });
 
-  loadData();
+    alert("Added successfully!");
+    loadData();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error adding data");
+  }
 }
 
+// Delete item
 async function deleteItem(id) {
-  await fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "delete",
-      id: id
-    })
-  });
+  try {
+    await fetch(API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "delete",
+        id: id
+      })
+    });
 
-  loadData();
+    loadData();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error deleting data");
+  }
 }
 
-// Load from localStorage if offline
-const backup = localStorage.getItem("backup");
-if (backup) render(JSON.parse(backup));
-
-// First load
+// Initial load
 loadData();
 </script>
 
