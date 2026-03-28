@@ -71,9 +71,9 @@ button {
 <button class="fab" onclick="addItem()">+</button>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwxA9ymWWzQ9IcTp5yQJZ723c8W8cbu3RzubyO3EZhsznGWcoli2rIr8nQ-n1K8Jn769Q/exec"; // 👈 paste your Apps Script URL here
+const API = "https://script.google.com/macros/s/AKfycbyAvgfMRpbJJkW1_vyv75ta8PZnV2mJMcSJfwBX9SZ9EqCL9raCNZzmvu6C5QWKvCmPig/exec"; // paste your Apps Script URL
 
-// Load data from Google Sheet
+// 🔄 LOAD DATA
 async function loadData() {
   try {
     const res = await fetch(API);
@@ -104,58 +104,32 @@ async function loadData() {
     });
 
   } catch (err) {
-    console.error(err);
     alert("Error loading data");
+    console.error(err);
   }
 }
 
-// Add new item
+// ➕ ADD ITEM
 async function addItem() {
   let text = prompt("Enter text or link:");
   if (!text) return;
 
+  let url = API + "?action=add&content=" + encodeURIComponent(text) + "&type=" + (text.startsWith("http") ? "link" : "text");
+
   try {
-    await fetch(API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "add",
-        content: text,
-        type: text.startsWith("http") ? "link" : "text"
-      })
-    });
-
-    alert("Added successfully!");
+    await fetch(url);
     loadData();
-
   } catch (err) {
-    console.error(err);
     alert("Error adding data");
   }
 }
 
-// Delete item
+// 🗑 DELETE ITEM
 async function deleteItem(id) {
-  try {
-    await fetch(API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "delete",
-        id: id
-      })
-    });
+  let url = API + "?action=delete&id=" + id;
 
-    loadData();
-
-  } catch (err) {
-    console.error(err);
-    alert("Error deleting data");
-  }
+  await fetch(url);
+  loadData();
 }
 
 // Initial load
