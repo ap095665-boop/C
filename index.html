@@ -76,19 +76,9 @@ const API = "https://script.google.com/macros/s/AKfycbyxkA1C-2RJs8eSc2TzuGOm9XQz
 // 🔄 LOAD DATA
 async function loadData() {
   try {
-    const res = await fetch(API + "?t=" + Date.now()); // 🔥 prevents cache
+    const res = await fetch(API + "?t=" + Date.now());
 
-    const text = await res.text();
-    console.log("RAW RESPONSE:", text);
-
-    let data;
-
-    try {
-      data = JSON.parse(text);
-    } catch {
-      document.getElementById("list").innerHTML = "Error loading data";
-      return;
-    }
+    const data = await res.json(); // 🔥 now safe
 
     const list = document.getElementById("list");
     list.innerHTML = "";
@@ -121,7 +111,7 @@ async function loadData() {
 
   } catch (err) {
     console.error(err);
-    document.getElementById("list").innerHTML = "Fetch failed";
+    document.getElementById("list").innerHTML = "Error loading data";
   }
 }
 // ➕ ADD ITEM
