@@ -155,21 +155,25 @@ list.innerHTML = `
     }
 
     data.reverse().forEach(item => {
-      const [id, content] = item;
+  const [id, content] = item;
 
-      const card = document.createElement("div");
-      card.className = "card";
+  const card = document.createElement("div");
+  card.className = "card";
 
-      const p = document.createElement("p");
-      p.innerText = content;
+  const p = document.createElement("p");
+  p.innerText = content;
 
-      const del = document.createElement("button");
-      del.innerText = "Delete";
-      delBtn.onclick = () => deleteItem(id, delBtn);
-      card.appendChild(p);
-      card.appendChild(del);
-      list.appendChild(card);
-    });
+  const del = document.createElement("button");
+  del.innerText = "Delete";
+  del.className = "delete";
+
+  // ✅ FIXED
+  del.onclick = () => deleteItem(id, del);
+
+  card.appendChild(p);
+  card.appendChild(del);
+  list.appendChild(card);
+});
 
   } catch (err) {
     console.error("FETCH ERROR:", err);
