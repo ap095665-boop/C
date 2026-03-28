@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick Sync</title>
+
+<style>
+body {
+  font-family: Arial;
+  margin: 0;
+  background: #0f172a;
+  color: white;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px;
+  background: #1e293b;
+}
+
+button {
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+}
+
+.refresh {
+  background: #38bdf8;
+}
+
+.container {
+  padding: 10px;
+}
+
+.card {
+  background: #1e293b;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 15px;
+}
+
+.preview img {
+  width: 100%;
+  border-radius: 10px;
+}
+
+.delete {
+  background: red;
+  margin-top: 5px;
+}
+
+.fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #22c55e;
+  width: 60px;
+  height: 60px;
+  font-size: 30px;
+  border-radius: 50%;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h3>Quick Sync</h3>
+  <button class="refresh" onclick="loadData()">Refresh</button>
+</header>
+
+<div class="container" id="list"></div>
+
+<button class="fab" onclick="addItem()">+</button>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbyz3ajWXWJf7j89nai77kE_V5aN4DNoVa7zRoy6xeHDQW-zonArkRD46NTYstHxNt5J0Q/exec";
+
+function isLink(text) {
+  return text.startsWith("http");
+}
+
+async function fetchPreview(url) {
+  try {
+    let res = await fetch("https://api.microlink.io/?url=" + encodeURIComponent(url));
+    let data = await res.json();
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+async function loadData() {
+  const res = await fetch(API);
+  const data = await res.json();
+
+  localStorage.setItem("backup", JSON.stringify(data));
+  render(data.reverse());
+}
+
+function render(data) {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(async item => {
+    const [id, content] = item;
+
+    let html = `<div class="card">`;
+
+    if (isLink(content)) {
+      const preview = await fetchPreview(content);
+
+      if (preview) {
+        html += `
+          <div class="preview">
+            <img src="${preview.image?.url || ''}">
+            <p>${preview.title}</p>
+            <a href="${content}" target="_blank">${content}</a>
+          </div>
+        `;
+      } else {
+        html += `<a href="${content}" target="_blank">${content}</a>`;
+      }
+    } else {
+      html += `<p>${content}</p>`;
+    }
+
+    html += `<button class="delete" onclick="deleteItem('${id}')">Delete</button>`;
+    html += `</div>`;
+
+    list.innerHTML += html;
+  });
+}
+
+async function addItem() {
+  let text = prompt("Enter text or link:");
+  if (!text) return;
+
+  await fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "add",
+      content: text,
+      type: isLink(text) ? "link" : "text"
+    })
+  });
+
+  loadData();
+}
+
+async function deleteItem(id) {
+  await fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "delete",
+      id: id
+    })
+  });
+
+  loadData();
+}
+
+// Load from localStorage if offline
+const backup = localStorage.getItem("backup");
+if (backup) render(JSON.parse(backup));
+
+// First load
+loadData();
+</script>
+
+</body>
+</html>
