@@ -34,18 +34,46 @@ button {
 .container {
   padding: 10px;
 }
-
 .card {
   background: #1e293b;
   margin: 10px 0;
   padding: 12px;
   border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.delete {
-  background: red;
-  margin-top: 8px;
+/* Fix long text / links */
+.card p,
+.card a {
+  max-height: 100px;
+  overflow-y: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
 }
+
+/* Make links look clean */
+.card a {
+  color: #38bdf8;
+  text-decoration: none;
+}
+
+/* Optional: hover effect */
+.card a:hover {
+  text-decoration: underline;
+}
+
+/* Fix delete button position */
+.delete {
+  align-self: flex-start;
+  background: red;
+  margin-top: 5px;
+}
+
 
 .fab {
   position: fixed;
@@ -57,12 +85,7 @@ button {
   font-size: 30px;
   border-radius: 50%;
 }
-.card p {
-  max-height: 100px;       /* limit height */
-  overflow-y: auto;        /* scroll vertically */
-  word-break: break-word;  /* break long words */
-  padding-right: 5px;
-}
+
   /* 🔄 Skeleton loader */
 .skeleton {
   background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
