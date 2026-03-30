@@ -157,16 +157,17 @@ button:active {
 <button class="fab" onclick="addItem()">+</button>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
- const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk"; // keep yours
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 🔄 LOAD DATA
 async function loadData() {
   const list = document.getElementById("list");
 
-  // skeleton loader
   list.innerHTML = `
     <div class="skeleton"></div>
     <div class="skeleton"></div>
@@ -185,7 +186,7 @@ async function loadData() {
 
   list.innerHTML = "";
 
-  if (!data.length) {
+  if (!data || !data.length) {
     list.innerHTML = "No data yet";
     return;
   }
@@ -196,8 +197,7 @@ async function loadData() {
 
     let contentEl;
 
-    // 🔗 Smart detection (link or text)
-    if (item.content.startsWith("http")) {
+    if (item.content && item.content.startsWith("http")) {
       contentEl = document.createElement("a");
       contentEl.href = item.content;
       contentEl.target = "_blank";
@@ -205,18 +205,16 @@ async function loadData() {
       contentEl.style.color = "#38bdf8";
     } else {
       contentEl = document.createElement("p");
-      contentEl.innerText = item.content;
+      contentEl.innerText = item.content || "";
     }
 
-    // 🗑 delete button
     const del = document.createElement("button");
     del.innerText = "Delete";
     del.className = "delete";
     del.onclick = () => deleteItem(item.id, card);
 
-    // 📋 tap to copy
     card.onclick = () => {
-      navigator.clipboard.writeText(item.content);
+      navigator.clipboard.writeText(item.content || "");
       showToast("Copied!");
     };
 
@@ -239,6 +237,7 @@ async function addItem() {
 
   if (error) {
     alert("Error adding");
+    console.error(error);
   } else {
     showSuccess("Added ✓");
   }
@@ -254,7 +253,7 @@ async function deleteItem(id, card) {
   }, 300);
 }
 
-// ⚡ REAL-TIME AUTO UPDATE
+// ⚡ REAL-TIME
 client
   .channel('notes-changes')
   .on(
@@ -280,9 +279,33 @@ function showToast(msg) {
   setTimeout(() => toast.remove(), 1000);
 }
 
+// 🔄 Loading overlay
+function showLoading(msg) {
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.id = "overlay";
+
+  overlay.innerHTML = `
+    <div class="spinner"></div>
+    <div>${msg}</div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+// ✅ Success overlay
+function showSuccess(msg) {
+  const overlay = document.getElementById("overlay");
+
+  if (overlay) {
+    overlay.innerHTML = `<div class="success">${msg}</div>`;
+    setTimeout(() => overlay.remove(), 1000);
+  }
+}
+
 // Initial load
 loadData();
-  
+</script>
 </script>
 
 </body>
