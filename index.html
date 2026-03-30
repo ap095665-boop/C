@@ -5,12 +5,7 @@
 <title>Quick Sync</title>
 
 <style>
-body {
-  margin:0;
-  font-family: Arial;
-  background:#0f172a;
-  color:white;
-}
+body { margin:0; font-family:Arial; background:#0f172a; color:white; }
 
 /* HEADER */
 header {
@@ -23,16 +18,18 @@ header {
 
 #userEmail {
   font-size:12px;
-  opacity:0.8;
+  max-width:140px;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
-/* LOGIN SCREEN */
+/* LOGIN */
 #loginScreen {
   height:100vh;
   display:flex;
-  flex-direction:column;
   justify-content:center;
   align-items:center;
+  flex-direction:column;
   gap:20px;
 }
 
@@ -45,13 +42,15 @@ header {
 /* LIST */
 .container { padding:10px; }
 
+/* CARD */
 .card {
   background:#1e293b;
   margin:10px 0;
   padding:12px;
   border-radius:15px;
   position:relative;
-  animation:fadeIn 0.3s ease;
+  animation:fadeIn 0.25s ease;
+  overflow:hidden;
 }
 
 @keyframes fadeIn {
@@ -59,10 +58,11 @@ header {
   to {opacity:1;}
 }
 
-/* CONTENT */
 .card a, .card p {
   word-break:break-word;
   font-size:14px;
+  max-height:120px;
+  overflow:auto;
 }
 
 .card a { color:#38bdf8; }
@@ -72,18 +72,10 @@ header {
   position:absolute;
   top:8px;
   right:10px;
-  font-size:11px;
+  font-size:10px;
   background:#334155;
-  padding:4px 8px;
-  border-radius:6px;
-}
-
-/* DELETE */
-.delete {
-  margin-top:10px;
-  width:100%;
-  background:red;
-  border-radius:8px;
+  padding:3px 6px;
+  border-radius:5px;
 }
 
 /* FAB */
@@ -95,17 +87,10 @@ header {
   width:60px;
   height:60px;
   border-radius:50%;
-  font-size:30px;
   display:flex;
   justify-content:center;
   align-items:center;
-  animation:pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform:scale(1);}
-  50% { transform:scale(1.1);}
-  100% { transform:scale(1);}
+  font-size:30px;
 }
 
 /* SKELETON */
@@ -123,54 +108,44 @@ header {
   100%{background-position:200%;}
 }
 
-/* OVERLAY */
-.overlay {
+/* TOAST */
+.toast {
   position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.7);
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  bottom:80px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#22c55e;
+  padding:8px 12px;
+  border-radius:8px;
+  font-size:13px;
 }
 
-.spinner {
-  border:4px solid #334155;
-  border-top:4px solid #22c55e;
-  border-radius:50%;
-  width:40px;
-  height:40px;
-  animation:spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform:rotate(360deg);}
+/* SWIPE DELETE */
+.card.removing {
+  transition:0.3s;
+  transform:translateX(100%);
+  opacity:0;
 }
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN SCREEN -->
 <div id="loginScreen">
   <h2>Quick Sync</h2>
   <button class="login-btn" onclick="login()">Login with Google</button>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none;">
-
 <header>
   <span id="userEmail"></span>
   <button onclick="logout()">Logout</button>
 </header>
 
-<div class="container" id="list"></div>
+<div id="list" class="container"></div>
 <div class="fab" onclick="addItem()">+</div>
-
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
@@ -180,175 +155,177 @@ const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 
-// 🔥 LOGIN
-async function login() {
+/* LOGIN */
+async function login(){
   await client.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.href
+    provider:'google',
+    options:{
+      redirectTo:location.origin + location.pathname,
+      queryParams:{ prompt:'select_account' }
     }
   });
 }
 
-// 🔥 LOGOUT (clean)
-async function logout() {
+/* LOGOUT */
+async function logout(){
   await client.auth.signOut();
-
-  // clear session fully
-  localStorage.clear();
-  sessionStorage.clear();
-
-  location.reload();
+  currentUser=null;
+  showLogin();
 }
 
-// 🔥 INIT (IMPORTANT FIX)
-async function init() {
+/* INIT */
+async function init(){
+  const { data:{ session } } = await client.auth.getSession();
 
-  // Wait for session restore
-  const { data: { session } } = await client.auth.getSession();
+  if(session) handleLogin(session.user);
+  else showLogin();
 
-  if (session) {
-    handleLogin(session.user);
-  } else {
-    showLogin();
-  }
-
-  // 🔥 Listen for login AFTER redirect
-  client.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN') {
-      handleLogin(session.user);
-    }
-    if (event === 'SIGNED_OUT') {
-      showLogin();
-    }
+  client.auth.onAuthStateChange((e,s)=>{
+    if(e==="SIGNED_IN") handleLogin(s.user);
+    if(e==="SIGNED_OUT") showLogin();
   });
 }
 
-// 🔥 HANDLE LOGIN UI
-function handleLogin(user) {
-  currentUser = user;
-
-  document.getElementById("loginScreen").style.display = "none";
-  document.getElementById("app").style.display = "block";
-
-  document.getElementById("userEmail").innerText = user.email;
-
+/* UI HANDLERS */
+function handleLogin(user){
+  currentUser=user;
+  loginScreen.style.display="none";
+  app.style.display="block";
+  userEmail.innerText=user.email;
   loadData();
   setupRealtime();
 }
 
-// 🔥 SHOW LOGIN SCREEN
-function showLogin() {
-  document.getElementById("loginScreen").style.display = "flex";
-  document.getElementById("app").style.display = "none";
+function showLogin(){
+  loginScreen.style.display="flex";
+  app.style.display="none";
 }
 
-// 🔄 LOAD DATA
-async function loadData() {
-  const list = document.getElementById("list");
+/* LOAD */
+async function loadData(){
+  const list=document.getElementById("list");
 
-  list.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div>`;
+  list.innerHTML=`<div class="skeleton"></div><div class="skeleton"></div>`;
 
-  if (!currentUser) return;
+  if(!currentUser) return;
 
   const { data } = await client
     .from("notes")
     .select("*")
     .eq("user_id", currentUser.id)
-    .order("id", { ascending: false });
+    .order("id",{ascending:false});
 
-  list.innerHTML = "";
+  list.innerHTML="";
 
-  if (!data || !data.length) {
-    list.innerHTML = "No data";
+  if(!data.length){
+    list.innerHTML="No data";
     return;
   }
 
-  data.forEach(item => {
-    const card = document.createElement("div");
-    card.className = "card";
+  data.forEach(item=>{
+    const card=document.createElement("div");
+    card.className="card";
 
+    let t=item.content;
     let el;
-    let t = item.content;
 
-    if (t.startsWith("http")) {
-      el = document.createElement("a");
-      el.href = t;
-      el.target = "_blank";
-      el.innerText = t;
+    if(t.startsWith("http")){
+      el=document.createElement("a");
+      el.href=t;
+      el.target="_blank";
+      el.innerText=t;
     }
-    else if (/^\+?\d{10,13}$/.test(t)) {
-      el = document.createElement("a");
-      el.href = "tel:" + t;
-      el.innerText = "📱 " + t;
+    else if(/^\+?\d{10,13}$/.test(t)){
+      el=document.createElement("a");
+      el.href="tel:"+t;
+      el.innerText="📱 "+t;
     }
-    else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) {
-      el = document.createElement("a");
-      el.href = "mailto:" + t;
-      el.innerText = "📧 " + t;
+    else if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)){
+      el=document.createElement("a");
+      el.href="mailto:"+t;
+      el.innerText="📧 "+t;
     }
-    else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")) {
-      el = document.createElement("a");
-      el.href = "upi://pay?pa=" + t;
-      el.innerText = "💸 " + t;
+    else if(/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")){
+      el=document.createElement("a");
+      el.href="upi://pay?pa="+t;
+      el.innerText="💸 "+t;
     }
-    else {
-      el = document.createElement("p");
-      el.innerText = t;
+    else{
+      el=document.createElement("p");
+      el.innerHTML=t
+        .replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank">$1</a>')
+        .replace(/\b(\+?\d{10,13})\b/g,'<a href="tel:$1">📱 $1</a>')
+        .replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,'<a href="mailto:$1">📧 $1</a>')
+        .replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,m=>m.includes('.')?m:`<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
     }
 
-    const copy = document.createElement("div");
-    copy.className = "copy-btn";
-    copy.innerText = "Copy";
-    copy.onclick = (e) => {
+    const copy=document.createElement("div");
+    copy.className="copy-btn";
+    copy.innerText="Copy";
+    copy.onclick=(e)=>{
       e.stopPropagation();
       navigator.clipboard.writeText(t);
+      showToast("Copied!");
     };
-
-    const del = document.createElement("button");
-    del.className = "delete";
-    del.innerText = "Delete";
-    del.onclick = () => deleteItem(item.id, card);
 
     card.appendChild(copy);
     card.appendChild(el);
-    card.appendChild(del);
+
+    /* SWIPE */
+    let startX=0;
+    card.addEventListener("touchstart",e=>{
+      startX=e.touches[0].clientX;
+    });
+
+    card.addEventListener("touchend",async e=>{
+      let diff=e.changedTouches[0].clientX-startX;
+
+      if(diff>120){
+        if(confirm("Delete this item?")){
+          card.classList.add("removing");
+          setTimeout(async()=>{
+            await client.from("notes").delete().eq("id",item.id);
+            card.remove();
+          },200);
+        }
+      }
+    });
+
     list.appendChild(card);
   });
 }
 
-// ➕ ADD
-async function addItem() {
-  let t = prompt("Enter text");
-  if (!t) return;
+/* ADD */
+async function addItem(){
+  let t=prompt("Enter text");
+  if(!t) return;
 
   await client.from("notes").insert([
-    { content: t, user_id: currentUser.id }
+    {content:t,user_id:currentUser.id}
   ]);
 
   loadData();
 }
 
-// 🗑 DELETE
-async function deleteItem(id, card) {
-  card.style.opacity = "0";
-  setTimeout(async () => {
-    await client.from("notes").delete().eq("id", id);
-    card.remove();
-  }, 200);
-}
-
-// ⚡ REALTIME
-function setupRealtime() {
+/* REALTIME */
+function setupRealtime(){
   client.channel('notes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, loadData)
-    .subscribe();
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'notes'},loadData)
+  .on('postgres_changes',{event:'DELETE',schema:'public',table:'notes'},loadData)
+  .subscribe();
 }
 
-// START
+/* TOAST */
+function showToast(msg){
+  const t=document.createElement("div");
+  t.className="toast";
+  t.innerText=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1000);
+}
+
 init();
 
 </script>
-  
 </body>
 </html>
