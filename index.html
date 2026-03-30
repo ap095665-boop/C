@@ -199,9 +199,11 @@ button:active {
 <script>
   async function login() {
   await client.auth.signInWithOAuth({
-    provider: 'google'
-  });
+  provider: 'google',
+  options: {
+    redirectTo: 'https://ap095665-boop.github.io/C'
   }
+});
 
   async function checkUser() {
   const { data } = await client.auth.getUser();
