@@ -42,6 +42,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
 /* Fix long text / links */
@@ -164,7 +165,21 @@ button:active {
   font-weight: bold;
   animation: fadeIn 0.3s ease;
 }
-  
+  /* 📋 Copy button (bottom-right) */
+.copy-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 12px;
+  background: #334155;
+  padding: 4px 8px;
+  border-radius: 6px;
+  opacity: 0.7;
+}
+
+.copy-btn:active {
+  transform: scale(0.9);
+}
 </style>
 </head>
 
@@ -236,10 +251,18 @@ async function loadData() {
     del.className = "delete";
     del.onclick = () => deleteItem(item.id, card);
 
-    card.onclick = () => {
-      navigator.clipboard.writeText(item.content || "");
-      showToast("Copied!");
-    };
+    // 📋 copy button (bottom-right)
+const copyBtn = document.createElement("div");
+copyBtn.innerText = "Copy";
+copyBtn.className = "copy-btn";
+
+copyBtn.onclick = (e) => {
+  e.stopPropagation(); // 🔥 prevent card click
+  navigator.clipboard.writeText(item.content || "");
+  showToast("Copied!");
+};
+
+card.appendChild(copyBtn);
 
     card.appendChild(contentEl);
     card.appendChild(del);
