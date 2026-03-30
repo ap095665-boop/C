@@ -171,112 +171,144 @@ header {
 <div class="fab" onclick="addItem()">+</div>
 
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
+const SUPABASE_KEY = "YOUR_KEY";
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 
-// LOGIN
+// 🔥 LOGIN
 async function login() {
   await client.auth.signInWithOAuth({
-    provider:'google',
-    options:{ redirectTo:location.href }
+    provider: 'google',
+    options: {
+      redirectTo: window.location.href
+    }
   });
 }
 
-// LOGOUT
+// 🔥 LOGOUT (clean)
 async function logout() {
   await client.auth.signOut();
+
+  // clear session fully
+  localStorage.clear();
+  sessionStorage.clear();
+
   location.reload();
 }
 
-// CHECK USER
+// 🔥 INIT (IMPORTANT FIX)
 async function init() {
-  const { data:{ session } } = await client.auth.getSession();
 
-  if(session){
-    currentUser = session.user;
+  // Wait for session restore
+  const { data: { session } } = await client.auth.getSession();
 
-    document.getElementById("loginScreen").style.display="none";
-    document.getElementById("app").style.display="block";
-
-    document.getElementById("userEmail").innerText=currentUser.email;
-
-    loadData();
-    setupRealtime();
-
+  if (session) {
+    handleLogin(session.user);
   } else {
-    document.getElementById("loginScreen").style.display="flex";
-    document.getElementById("app").style.display="none";
+    showLogin();
   }
+
+  // 🔥 Listen for login AFTER redirect
+  client.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      handleLogin(session.user);
+    }
+    if (event === 'SIGNED_OUT') {
+      showLogin();
+    }
+  });
 }
 
-init();
+// 🔥 HANDLE LOGIN UI
+function handleLogin(user) {
+  currentUser = user;
 
-// LOAD DATA
-async function loadData(){
-  const list=document.getElementById("list");
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+
+  document.getElementById("userEmail").innerText = user.email;
+
+  loadData();
+  setupRealtime();
+}
+
+// 🔥 SHOW LOGIN SCREEN
+function showLogin() {
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("app").style.display = "none";
+}
+
+// 🔄 LOAD DATA
+async function loadData() {
+  const list = document.getElementById("list");
 
   list.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div>`;
+
+  if (!currentUser) return;
 
   const { data } = await client
     .from("notes")
     .select("*")
     .eq("user_id", currentUser.id)
-    .order("id",{ascending:false});
+    .order("id", { ascending: false });
 
-  list.innerHTML="";
+  list.innerHTML = "";
 
-  data.forEach(item=>{
-    const card=document.createElement("div");
-    card.className="card";
+  if (!data || !data.length) {
+    list.innerHTML = "No data";
+    return;
+  }
+
+  data.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "card";
 
     let el;
-    let t=item.content;
+    let t = item.content;
 
-    if(t.startsWith("http")){
-      el=document.createElement("a");
-      el.href=t;
-      el.target="_blank";
-      el.innerText=t;
+    if (t.startsWith("http")) {
+      el = document.createElement("a");
+      el.href = t;
+      el.target = "_blank";
+      el.innerText = t;
     }
-    else if(/^\+?\d{10,13}$/.test(t)){
-      el=document.createElement("a");
-      el.href="tel:"+t;
-      el.innerText="📱 "+t;
+    else if (/^\+?\d{10,13}$/.test(t)) {
+      el = document.createElement("a");
+      el.href = "tel:" + t;
+      el.innerText = "📱 " + t;
     }
-    else if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)){
-      el=document.createElement("a");
-      el.href="mailto:"+t;
-      el.innerText="📧 "+t;
+    else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) {
+      el = document.createElement("a");
+      el.href = "mailto:" + t;
+      el.innerText = "📧 " + t;
     }
-    else if(/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")){
-      el=document.createElement("a");
-      el.href="upi://pay?pa="+t;
-      el.innerText="💸 "+t;
+    else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")) {
+      el = document.createElement("a");
+      el.href = "upi://pay?pa=" + t;
+      el.innerText = "💸 " + t;
     }
-    else{
-      el=document.createElement("p");
-      el.innerHTML=t;
+    else {
+      el = document.createElement("p");
+      el.innerText = t;
     }
 
-    const copy=document.createElement("div");
-    copy.className="copy-btn";
-    copy.innerText="Copy";
-    copy.onclick=(e)=>{
+    const copy = document.createElement("div");
+    copy.className = "copy-btn";
+    copy.innerText = "Copy";
+    copy.onclick = (e) => {
       e.stopPropagation();
       navigator.clipboard.writeText(t);
     };
 
-    const del=document.createElement("button");
-    del.className="delete";
-    del.innerText="Delete";
-    del.onclick=()=>deleteItem(item.id,card);
+    const del = document.createElement("button");
+    del.className = "delete";
+    del.innerText = "Delete";
+    del.onclick = () => deleteItem(item.id, card);
 
     card.appendChild(copy);
     card.appendChild(el);
@@ -285,36 +317,38 @@ async function loadData(){
   });
 }
 
-// ADD
-async function addItem(){
-  let t=prompt("Enter text");
-  if(!t) return;
+// ➕ ADD
+async function addItem() {
+  let t = prompt("Enter text");
+  if (!t) return;
 
   await client.from("notes").insert([
-    {content:t, user_id:currentUser.id}
+    { content: t, user_id: currentUser.id }
   ]);
 
   loadData();
 }
 
-// DELETE
-async function deleteItem(id,card){
-  card.style.opacity="0";
-  setTimeout(async()=>{
-    await client.from("notes").delete().eq("id",id);
+// 🗑 DELETE
+async function deleteItem(id, card) {
+  card.style.opacity = "0";
+  setTimeout(async () => {
+    await client.from("notes").delete().eq("id", id);
     card.remove();
-  },200);
+  }, 200);
 }
 
-// REALTIME
-function setupRealtime(){
+// ⚡ REALTIME
+function setupRealtime() {
   client.channel('notes')
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'notes'},loadData)
-  .on('postgres_changes',{event:'DELETE',schema:'public',table:'notes'},loadData)
-  .subscribe();
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, loadData)
+    .subscribe();
 }
+
+// START
+init();
 
 </script>
-
+  
 </body>
 </html>
