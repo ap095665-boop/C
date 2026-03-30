@@ -269,7 +269,34 @@ else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(text) && !text.includes(".")) {
 // 📝 NORMAL TEXT
 else {
   contentEl = document.createElement("p");
-  contentEl.innerText = text;
+
+  let formatted = text;
+
+  // 🌐 URL
+  formatted = formatted.replace(
+    /(https?:\/\/[^\s]+)/g,
+    '<a href="$1" target="_blank" style="color:#38bdf8">$1</a>'
+  );
+
+  // 📧 EMAIL
+  formatted = formatted.replace(
+    /([^\s@]+@[^\s@]+\.[^\s@]+)/g,
+    '<a href="mailto:$1">📧 $1</a>'
+  );
+
+  // 📱 PHONE
+  formatted = formatted.replace(
+    /\b(\+?\d{10,13})\b/g,
+    '<a href="tel:$1">📱 $1</a>'
+  );
+
+  // 💸 UPI
+  formatted = formatted.replace(
+    /\b([\w.-]+@[a-zA-Z]{2,})\b/g,
+    '<a href="upi://pay?pa=$1">💸 $1</a>'
+  );
+
+  contentEl.innerHTML = formatted;
 }
 
     const del = document.createElement("button");
