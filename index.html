@@ -6,31 +6,80 @@
 <title>Quick Sync</title>
 
 <style>
-/* (UNCHANGED CSS — your full CSS remains same) */
-body { font-family: Arial; background: #0f172a; color: white; margin: 0; }
-header { display: flex; justify-content: space-between; padding: 15px; background: #1e293b; }
-button { padding: 10px; border: none; border-radius: 10px; cursor: pointer; }
-.refresh { background: #38bdf8; }
-.container { padding: 10px; }
-.card { background: #1e293b; margin: 10px 0; padding: 12px; border-radius: 15px; display: flex; flex-direction: column; gap: 8px; position: relative; }
-.card p,.card a { max-height: 100px; overflow-y: auto; word-break: break-word; overflow-wrap: anywhere; display: block; font-size: 14px; line-height: 1.4; }
-.card a { color: #38bdf8; text-decoration: none; }
-.card a:hover { text-decoration: underline; }
-.delete { align-self: flex-start; background: red; margin-top: 5px; }
-.fab { position: fixed; bottom: 20px; right: 20px; background: #22c55e; width: 60px; height: 60px; font-size: 30px; border-radius: 50%; }
-.skeleton { background: linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 60px; border-radius: 12px; margin: 10px 0; }
-@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-.card { animation: fadeIn 0.4s ease; transition: transform 0.2s ease, opacity 0.2s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity:1; transform:translateY(0);} }
-.card.removing { animation: removeAnim 0.3s forwards; }
-@keyframes removeAnim { to { opacity:0; transform:translateX(100px) scale(0.9);} }
-button:active { transform: scale(0.95); }
-.overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15,23,42,0.9); display:flex; justify-content:center; align-items:center; z-index:999; flex-direction:column; }
-.spinner { border:4px solid #334155; border-top:4px solid #22c55e; border-radius:50%; width:50px; height:50px; animation: spin 1s linear infinite; margin-bottom:10px;}
-@keyframes spin { to { transform: rotate(360deg);} }
-.success { color:#22c55e; font-weight:bold; animation: fadeIn 0.3s ease;}
-.copy-btn { position:absolute; bottom:8px; right:10px; font-size:12px; background:#334155; padding:4px 8px; border-radius:6px; opacity:0.7;}
-.copy-btn:active { transform: scale(0.9); }
+body { font-family: Arial; background:#0f172a; color:white; margin:0; }
+header { display:flex; justify-content:space-between; padding:15px; background:#1e293b; align-items:center; }
+button { padding:10px; border:none; border-radius:10px; cursor:pointer; }
+.refresh { background:#38bdf8; }
+.container { padding:10px; }
+
+.card {
+  background:#1e293b;
+  margin:10px 0;
+  padding:12px;
+  border-radius:15px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  position:relative;
+}
+
+.card p,.card a {
+  max-height:100px;
+  overflow-y:auto;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+  font-size:14px;
+}
+
+.card a { color:#38bdf8; text-decoration:none; }
+
+.delete { background:red; margin-top:5px; }
+
+.fab {
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:#22c55e;
+  width:60px;
+  height:60px;
+  font-size:30px;
+  border-radius:50%;
+}
+
+.copy-btn {
+  position:absolute;
+  bottom:8px;
+  right:10px;
+  font-size:12px;
+  background:#334155;
+  padding:4px 8px;
+  border-radius:6px;
+  opacity:0.7;
+}
+
+.overlay {
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(15,23,42,0.9);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+  flex-direction:column;
+}
+
+.spinner {
+  border:4px solid #334155;
+  border-top:4px solid #22c55e;
+  border-radius:50%;
+  width:50px;
+  height:50px;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform:rotate(360deg);} }
+.success { color:#22c55e; font-weight:bold; }
 </style>
 </head>
 
@@ -38,19 +87,23 @@ button:active { transform: scale(0.95); }
 
 <header>
   <h3>Quick Sync</h3>
-  <button class="refresh" onclick="loadData()">Refresh</button>
+  <div>
+    <span id="userEmail" style="font-size:12px;"></span>
+    <button onclick="logout()">Logout</button>
+    <button class="refresh" onclick="loadData()">Refresh</button>
+  </div>
 </header>
 
 <div class="container" id="list"></div>
-<button onclick="login()">Login with Google</button>
+
+<button id="loginBtn" onclick="login()">Login with Google</button>
 <button class="fab" onclick="addItem()">+</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
-
+const SUPABASE_KEY = "YOUR_REAL_KEY";
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 🔐 LOGIN
@@ -63,15 +116,32 @@ async function login() {
   });
 }
 
+// 🔓 LOGOUT
+async function logout() {
+  await client.auth.signOut();
+  location.reload();
+}
+
 // 👤 CHECK USER
 async function checkUser() {
-  const { data } = await client.auth.getUser();
+  const { data: { session } } = await client.auth.getSession();
 
-  if (data.user) {
-    console.log("Logged in:", data.user.email);
-    setupRealtime(); // 🔥 moved here
+  const emailEl = document.getElementById("userEmail");
+  const loginBtn = document.getElementById("loginBtn");
+
+  if (session) {
+    const user = session.user;
+
+    emailEl.innerText = user.email;
+    loginBtn.style.display = "none";
+
+    setupRealtime();
+    loadData();
+
   } else {
-    console.log("Not logged in");
+    emailEl.innerText = "";
+    loginBtn.style.display = "block";
+    document.getElementById("list").innerHTML = "Please login first";
   }
 }
 
@@ -81,48 +151,58 @@ checkUser();
 async function loadData() {
   const list = document.getElementById("list");
 
-  list.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div>`;
-
-  const user = (await client.auth.getUser()).data.user;
-
-  if (!user) {
-    list.innerHTML = "Please login first";
-    return;
-  }
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) return;
 
   const { data, error } = await client
     .from("notes")
     .select("*")
     .eq("user_id", user.id)
-    .order("id", { ascending: false });
+    .order("id", { ascending:false });
 
-  if (error) {
-    list.innerHTML = "Error loading data";
-    return;
-  }
+  if (error) return;
 
   list.innerHTML = "";
-
-  if (!data.length) {
-    list.innerHTML = "No data yet";
-    return;
-  }
 
   data.forEach(item => {
     const card = document.createElement("div");
     card.className = "card";
 
-    let contentEl;
     const text = item.content || "";
+    let contentEl;
 
+    // SMART DETECTION (FULL RESTORED)
     if (text.startsWith("http")) {
       contentEl = document.createElement("a");
       contentEl.href = text;
       contentEl.target = "_blank";
       contentEl.innerText = text;
-    } else {
+    }
+    else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+      contentEl = document.createElement("a");
+      contentEl.href = "mailto:" + text;
+      contentEl.innerText = "📧 " + text;
+    }
+    else if (/^\+?\d{10,13}$/.test(text)) {
+      contentEl = document.createElement("a");
+      contentEl.href = "tel:" + text;
+      contentEl.innerText = "📱 " + text;
+    }
+    else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(text) && !text.includes(".")) {
+      contentEl = document.createElement("a");
+      contentEl.href = "upi://pay?pa=" + text;
+      contentEl.innerText = "💸 " + text;
+    }
+    else {
       contentEl = document.createElement("p");
-      contentEl.innerText = text;
+      let formatted = text;
+
+      formatted = formatted.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank">$1</a>');
+      formatted = formatted.replace(/\b(\+?\d{10,13})\b/g,'<a href="tel:$1">📱 $1</a>');
+      formatted = formatted.replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,'<a href="mailto:$1">📧 $1</a>');
+      formatted = formatted.replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,(m)=> m.includes('.')?m:`<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
+
+      contentEl.innerHTML = formatted;
     }
 
     const del = document.createElement("button");
@@ -133,7 +213,7 @@ async function loadData() {
     const copyBtn = document.createElement("div");
     copyBtn.innerText = "Copy";
     copyBtn.className = "copy-btn";
-    copyBtn.onclick = (e) => {
+    copyBtn.onclick = (e)=>{
       e.stopPropagation();
       navigator.clipboard.writeText(text);
       showToast("Copied!");
@@ -153,16 +233,14 @@ async function addItem() {
 
   showLoading("Adding...");
 
-  const user = (await client.auth.getUser()).data.user;
+  const { data:{ user } } = await client.auth.getUser();
 
-  const { error } = await client.from("notes").insert([
-    { content: text, user_id: user.id }
+  await client.from("notes").insert([
+    { content:text, user_id:user.id }
   ]);
 
-  if (!error) {
-    showSuccess("Added ✓");
-    loadData(); // 🔥 instant update
-  }
+  showSuccess("Added ✓");
+  loadData();
 }
 
 // 🗑 DELETE
@@ -177,58 +255,45 @@ async function deleteItem(id, card) {
 
 // ⚡ REALTIME FIXED
 function setupRealtime() {
-  client
-    .channel('notes-changes')
+  client.channel('notes-changes')
 
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'notes'
-    }, () => loadData())
+  .on('postgres_changes',{
+    event:'INSERT', schema:'public', table:'notes'
+  }, ()=> loadData())
 
-    .on('postgres_changes', {
-      event: 'DELETE',
-      schema: 'public',
-      table: 'notes'
-    }, () => loadData())
+  .on('postgres_changes',{
+    event:'DELETE', schema:'public', table:'notes'
+  }, ()=> loadData())
 
-    .subscribe();
+  .subscribe();
 }
 
-// 🔔 TOAST
-function showToast(msg) {
-  const toast = document.createElement("div");
-  toast.innerText = msg;
-  toast.style.position = "fixed";
-  toast.style.bottom = "80px";
-  toast.style.left = "50%";
-  toast.style.transform = "translateX(-50%)";
-  toast.style.background = "#22c55e";
-  toast.style.padding = "10px 15px";
-  toast.style.borderRadius = "10px";
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 1000);
+// 🔔 Toast
+function showToast(msg){
+  const t=document.createElement("div");
+  t.innerText=msg;
+  t.style.cssText="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#22c55e;padding:10px;border-radius:10px;";
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1000);
 }
 
-// 🔄 LOADING
-function showLoading(msg) {
-  const overlay = document.createElement("div");
-  overlay.className = "overlay";
-  overlay.id = "overlay";
-  overlay.innerHTML = `<div class="spinner"></div><div>${msg}</div>`;
-  document.body.appendChild(overlay);
+// 🔄 Loading
+function showLoading(msg){
+  const o=document.createElement("div");
+  o.className="overlay";
+  o.id="overlay";
+  o.innerHTML=`<div class="spinner"></div><div>${msg}</div>`;
+  document.body.appendChild(o);
 }
 
-// ✅ SUCCESS
-function showSuccess(msg) {
-  const overlay = document.getElementById("overlay");
-  if (overlay) {
-    overlay.innerHTML = `<div class="success">${msg}</div>`;
-    setTimeout(() => overlay.remove(), 1000);
+// ✅ Success
+function showSuccess(msg){
+  const o=document.getElementById("overlay");
+  if(o){
+    o.innerHTML=`<div class="success">${msg}</div>`;
+    setTimeout(()=>o.remove(),1000);
   }
 }
-
-loadData();
 
 </script>
 </body>
