@@ -278,9 +278,9 @@ else {
     '<a href="$1" target="_blank" style="color:#38bdf8">$1</a>'
   );
 
-  // 📧 EMAIL
+  // 📧 EMAIL (strict)
   formatted = formatted.replace(
-    /([^\s@]+@[^\s@]+\.[^\s@]+)/g,
+    /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g,
     '<a href="mailto:$1">📧 $1</a>'
   );
 
@@ -290,10 +290,13 @@ else {
     '<a href="tel:$1">📱 $1</a>'
   );
 
-  // 💸 UPI
+  // 💸 UPI (ONLY if no dot after @)
   formatted = formatted.replace(
     /\b([\w.-]+@[a-zA-Z]{2,})\b/g,
-    '<a href="upi://pay?pa=$1">💸 $1</a>'
+    (match) => {
+      if (match.includes(".")) return match; // skip emails
+      return `<a href="upi://pay?pa=${match}">💸 ${match}</a>`;
+    }
   );
 
   contentEl.innerHTML = formatted;
