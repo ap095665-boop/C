@@ -229,11 +229,18 @@ async function loadData() {
     <div class="skeleton"></div>
   `;
 
-  const { data, error } = await client
-    .from("notes")
-    .select("*")
-    .order("id", { ascending: false });
+  const user = (await client.auth.getUser()).data.user;
 
+if (!user) {
+  list.innerHTML = "Please login first";
+  return;
+}
+
+const { data, error } = await client
+  .from("notes")
+  .select("*")
+  .eq("user_id", user.id)
+  .order("id", { ascending: false });
   if (error) {
     list.innerHTML = "Error loading data";
     console.error(error);
@@ -351,8 +358,13 @@ async function addItem() {
 
   showLoading("Adding...");
 
+  const user = (await client.auth.getUser()).data.user;
+
   const { error } = await client.from("notes").insert([
-    { content: text }
+    {
+      content: text,
+      user_id: user.id
+    }
   ]);
 
   if (error) {
