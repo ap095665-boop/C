@@ -234,17 +234,43 @@ async function loadData() {
     card.className = "card";
 
     let contentEl;
+const text = item.content || "";
 
-    if (item.content && item.content.startsWith("http")) {
-      contentEl = document.createElement("a");
-      contentEl.href = item.content;
-      contentEl.target = "_blank";
-      contentEl.innerText = item.content;
-      contentEl.style.color = "#38bdf8";
-    } else {
-      contentEl = document.createElement("p");
-      contentEl.innerText = item.content || "";
-    }
+// 🌐 URL
+if (text.startsWith("http")) {
+  contentEl = document.createElement("a");
+  contentEl.href = text;
+  contentEl.target = "_blank";
+  contentEl.innerText = text;
+  contentEl.style.color = "#38bdf8";
+}
+
+// 📧 EMAIL
+else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+  contentEl = document.createElement("a");
+  contentEl.href = "mailto:" + text;
+  contentEl.innerText = "📧 " + text;
+}
+
+// 📱 PHONE
+else if (/^\d{10}$/.test(text)) {
+  contentEl = document.createElement("a");
+  contentEl.href = "tel:" + text;
+  contentEl.innerText = "📱 " + text;
+}
+
+// 💸 UPI
+else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(text) && !text.includes(".")) {
+  contentEl = document.createElement("a");
+  contentEl.href = "upi://pay?pa=" + text;
+  contentEl.innerText = "💸 " + text;
+}
+
+// 📝 NORMAL TEXT
+else {
+  contentEl = document.createElement("p");
+  contentEl.innerText = text;
+}
 
     const del = document.createElement("button");
     del.innerText = "Delete";
