@@ -277,56 +277,48 @@ async function loadData() {
 
 function renderCard(item){
 
-    const card=document.createElement("div");
-    card.className="card";
+    let t = item.content;
+let el;
 
-    const text=document.createElement("p");
-    text.textContent=item.content;
+if (t.startsWith("http")) {
+    el = document.createElement("a");
+    el.href = t;
+    el.target = "_blank";
+    el.innerText = t;
+}
+else if (/^\+?\d{10,13}$/.test(t)) {
+    el = document.createElement("a");
+    el.href = "tel:" + t;
+    el.innerText = "📱 " + t;
+}
+else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) {
+    el = document.createElement("a");
+    el.href = "mailto:" + t;
+    el.innerText = "📧 " + t;
+}
+else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")) {
+    el = document.createElement("a");
+    el.href = "upi://pay?pa=" + t;
+    el.innerText = "💸 " + t;
+}
+else {
+    el = document.createElement("p");
 
-    const copy=document.createElement("div");
-    copy.className="copy-btn";
-    copy.innerText="Copy";
+    el.innerHTML = t
+        .replace(/(https?:\/\/[^\s]+)/g,
+            '<a href="$1" target="_blank">$1</a>')
+        .replace(/\b(\+?\d{10,13})\b/g,
+            '<a href="tel:$1">📱 $1</a>')
+        .replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,
+            '<a href="mailto:$1">📧 $1</a>')
+        .replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,
+            m => m.includes(".")
+                ? m
+                : `<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
+}
 
-    copy.onclick=()=>{
-        navigator.clipboard.writeText(item.content);
-        showToast("Copied");
-    };
-
-    let startX=0;
-
-    card.addEventListener("touchstart",e=>{
-        startX=e.touches[0].clientX;
-    });
-
-    card.addEventListener("touchend",async e=>{
-
-        let diff=e.changedTouches[0].clientX-startX;
-
-        if(diff>120){
-
-            if(!confirm("Delete?")) return;
-
-            const {error}=await client
-            .from("notes")
-            .delete()
-            .eq("id",item.id);
-
-            if(error){
-                alert(error.message);
-                return;
-            }
-
-            loadData();
-
-        }
-
-    });
-
-    card.appendChild(copy);
-    card.appendChild(text);
-
-    list.appendChild(card);
-
+card.appendChild(copy);
+card.appendChild(el);
 }
 
 async function addItem(){
