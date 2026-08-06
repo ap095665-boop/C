@@ -329,23 +329,20 @@ async function addItem(){
 
     if(!value) return;
 
-    const {error}=await client
-    .from("notes")
-    .insert([
-        {
-            content:value,
-            user_id:currentUser.id
-        }
-    ]);
-
-    if(error){
-        alert(error.message);
-        return;
-    }
-
-    loadData();
-
+    const { error } = await client
+.from("notes")
+.insert([
+{
+content: value
 }
+]);
+
+if (error) {
+    alert(error.message);
+    return;
+}
+
+loadData();
 
 function setupRealtime(){
 
