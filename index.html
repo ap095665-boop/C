@@ -151,103 +151,130 @@ header {
 const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
 
+
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
-let channel = null;
+let realtimeChannel = null;
 
 const loginScreen = document.getElementById("loginScreen");
 const app = document.getElementById("app");
-const userEmail = document.getElementById("userEmail");
 const list = document.getElementById("list");
+const userEmail = document.getElementById("userEmail");
 
 async function login() {
-  try {
+
     const { error } = await client.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.href,
-        queryParams: {
-          prompt: "select_account"
+
+        provider: "google",
+
+        options: {
+
+            redirectTo: window.location.origin +
+                        window.location.pathname,
+
+            queryParams: {
+                prompt: "select_account"
+            }
+
         }
-      }
+
     });
 
-    if (error) alert(error.message);
+    if (error) {
+        alert(error.message);
+    }
 
-  } catch (e) {
-    alert(e.message);
-  }
 }
 
 async function logout() {
-  if (channel) {
-    client.removeChannel(channel);
-    channel = null;
-  }
 
-  await client.auth.signOut();
+    if (realtimeChannel) {
 
-  currentUser = null;
+        await client.removeChannel(realtimeChannel);
+        realtimeChannel = null;
 
-  app.style.display = "none";
-  loginScreen.style.display = "flex";
+    }
+
+    await client.auth.signOut();
+
+    currentUser = null;
+
+    app.style.display = "none";
+    loginScreen.style.display = "flex";
+
 }
 
 async function restoreSession() {
 
-  const {
-    data: { session },
-    error
-  } = await client.auth.getSession();
+    const {
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+        data: { session },
 
-  if (session) {
-    onLogin(session.user);
-  } else {
-    loginScreen.style.display = "flex";
-    app.style.display = "none";
-  }
+        error
+
+    } = await client.auth.getSession();
+
+    if (error) {
+
+        alert(error.message);
+        return;
+
+    }
+
+    if (session) {
+
+        currentUser = session.user;
+
+        loginScreen.style.display = "none";
+        app.style.display = "block";
+
+        userEmail.textContent = currentUser.email;
+
+        await loadData();
+
+        startRealtime();
+
+    }
+
 }
 
-client.auth.onAuthStateChange((event, session) => {
+client.auth.onAuthStateChange(async (event, session) => {
 
-  if (event === "SIGNED_IN" && session) {
-    onLogin(session.user);
-  }
+    if (event === "SIGNED_IN") {
 
-  if (event === "SIGNED_OUT") {
-    loginScreen.style.display = "flex";
-    app.style.display = "none";
-  }
+        currentUser = session.user;
+
+        loginScreen.style.display = "none";
+        app.style.display = "block";
+
+        userEmail.textContent = currentUser.email;
+
+        await loadData();
+
+        startRealtime();
+
+    }
+
+    if (event === "SIGNED_OUT") {
+
+        currentUser = null;
+
+        app.style.display = "none";
+
+        loginScreen.style.display = "flex";
+
+    }
 
 });
 
-function onLogin(user) {
-
-  currentUser = user;
-
-  loginScreen.style.display = "none";
-  app.style.display = "block";
-
-  userEmail.textContent = user.email;
-
-  loadData();
-
-  setupRealtime();
-
-}
-
 restoreSession();
-async function loadData() {
+          async function loadData() {
 
     if (!currentUser) return;
 
     list.innerHTML = `
+        <div class="skeleton"></div>
         <div class="skeleton"></div>
         <div class="skeleton"></div>
     `;
@@ -267,120 +294,250 @@ async function loadData() {
     list.innerHTML = "";
 
     if (!data || data.length === 0) {
+
         list.innerHTML =
         "<center style='padding:40px;opacity:.7'>No data found</center>";
+
         return;
+
     }
 
     data.forEach(renderCard);
+
 }
 
 function renderCard(item){
 
-    let t = item.content;
-let el;
+    const card=document.createElement("div");
+    card.className="card";
 
-if (t.startsWith("http")) {
-    el = document.createElement("a");
-    el.href = t;
-    el.target = "_blank";
-    el.innerText = t;
-}
-else if (/^\+?\d{10,13}$/.test(t)) {
-    el = document.createElement("a");
-    el.href = "tel:" + t;
-    el.innerText = "📱 " + t;
-}
-else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) {
-    el = document.createElement("a");
-    el.href = "mailto:" + t;
-    el.innerText = "📧 " + t;
-}
-else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")) {
-    el = document.createElement("a");
-    el.href = "upi://pay?pa=" + t;
-    el.innerText = "💸 " + t;
-}
-else {
-    el = document.createElement("p");
+    const copy=document.createElement("div");
+    copy.className="copy-btn";
+    copy.innerText="Copy";
 
-    el.innerHTML = t
+    copy.onclick=()=>{
+
+        navigator.clipboard.writeText(item.content);
+
+        showToast("Copied");
+
+    };
+
+    let el;
+
+    let t=item.content.trim();
+
+    if(/^https?:\/\//i.test(t)){
+
+        el=document.createElement("a");
+
+        el.href=t;
+
+        el.target="_blank";
+
+        el.innerText=t;
+
+    }
+
+    else if(/^\+?\d{10,13}$/.test(t)){
+
+        el=document.createElement("a");
+
+        el.href="tel:"+t;
+
+        el.innerText="📞 "+t;
+
+    }
+
+    else if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)){
+
+        el=document.createElement("a");
+
+        el.href="mailto:"+t;
+
+        el.innerText="📧 "+t;
+
+    }
+
+    else if(/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")){
+
+        el=document.createElement("a");
+
+        el.href="upi://pay?pa="+t;
+
+        el.innerText="💳 "+t;
+
+    }
+
+    else{
+
+        el=document.createElement("p");
+
+        el.innerHTML=t
+
         .replace(/(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank">$1</a>')
+        '<a href="$1" target="_blank">$1</a>')
+
         .replace(/\b(\+?\d{10,13})\b/g,
-            '<a href="tel:$1">📱 $1</a>')
+        '<a href="tel:$1">📞 $1</a>')
+
         .replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,
-            '<a href="mailto:$1">📧 $1</a>')
+        '<a href="mailto:$1">📧 $1</a>')
+
         .replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,
-            m => m.includes(".")
-                ? m
-                : `<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
-}
 
-card.appendChild(copy);
-card.appendChild(el);
-}
+        function(m){
 
+            if(m.includes(".")) return m;
+
+            return `<a href="upi://pay?pa=${m}">💳 ${m}</a>`;
+
+        });
+
+    }
+
+    card.appendChild(copy);
+
+    card.appendChild(el);
+
+    let startX=0;
+
+    card.addEventListener("touchstart",e=>{
+
+        startX=e.touches[0].clientX;
+
+    });
+
+    card.addEventListener("touchend",async e=>{
+
+        let diff=e.changedTouches[0].clientX-startX;
+
+        if(diff>120){
+
+            if(!confirm("Delete this item?")) return;
+
+            card.classList.add("removing");
+
+            setTimeout(async()=>{
+
+                const {error}=await client
+
+                .from("notes")
+
+                .delete()
+
+                .eq("id",item.id);
+
+                if(error){
+
+                    alert(error.message);
+
+                    return;
+
+                }
+
+                loadData();
+
+            },250);
+
+        }
+
+    });
+
+    list.appendChild(card);
+
+          }
 async function addItem(){
 
     if(!currentUser) return;
 
     const value=prompt("Enter text");
 
-    if(!value) return;
+    if(!value || !value.trim()) return;
 
     const { error } = await client
-.from("notes")
-.insert([
-{
-content: value
-}
-]);
 
-if (error) {
-    alert(error.message);
-    return;
-}
+    .from("notes")
 
-loadData();
-}
-function setupRealtime(){
+    .insert([
+        {
+            content:value.trim()
+        }
+    ]);
 
-    if(channel){
-        client.removeChannel(channel);
+    if(error){
+
+        alert(error.message);
+
+        return;
+
     }
 
-    channel=client
+    loadData();
+
+}
+
+function startRealtime(){
+
+    if(realtimeChannel){
+
+        client.removeChannel(realtimeChannel);
+
+    }
+
+    realtimeChannel = client
+
     .channel("notes-live")
+
     .on(
+
         "postgres_changes",
+
         {
+
             event:"*",
+
             schema:"public",
+
             table:"notes"
+
         },
-        ()=>loadData()
+
+        ()=>{
+
+            loadData();
+
+        }
+
     )
+
     .subscribe();
 
 }
 
-function showToast(msg){
+function showToast(message){
 
-    const t=document.createElement("div");
+    const toast=document.createElement("div");
 
-    t.className="toast";
+    toast.className="toast";
 
-    t.innerText=msg;
+    toast.innerText=message;
 
-    document.body.appendChild(t);
+    document.body.appendChild(toast);
 
     setTimeout(()=>{
-        t.remove();
-    },1000);
 
-  }
-          
+        toast.remove();
+
+    },1200);
+
+}
+
+window.login=login;
+window.logout=logout;
+window.addItem=addItem;
+
+  
 </script>
 </body>
 </html>
