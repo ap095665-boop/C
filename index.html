@@ -154,17 +154,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
-const {
-  data: { session },
-} = await supabase.auth.getSession();
 
-console.log(session);
-
-  const {
-  data: { user },
-} = await supabase.auth.getUser();
-
-console.log(user);
 /* LOGIN */
 async function login(){
   await client.auth.signInWithOAuth({
@@ -199,6 +189,7 @@ async function init(){
 /* UI HANDLERS */
 function handleLogin(user){
   currentUser=user;
+  alert(currentUser.id);
   loginScreen.style.display="none";
   app.style.display="block";
   userEmail.innerText=user.email;
@@ -219,7 +210,11 @@ async function loadData(){
 
   if(!currentUser) return;
 
-  const { data } = await client
+  const { data, error } = await client
+    if (error) {
+  alert(error.message);
+  return;
+    }
     .from("notes")
     .select("*")
     .eq("user_id", currentUser.id)
