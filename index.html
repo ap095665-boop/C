@@ -211,14 +211,15 @@ async function loadData(){
   if(!currentUser) return;
 
   const { data, error } = await client
-    if (error) {
+  .from("notes")
+  .select("*")
+  .eq("user_id", currentUser.id)
+  .order("id", { ascending: false });
+
+if (error) {
   alert(error.message);
   return;
-    }
-    .from("notes")
-    .select("*")
-    .eq("user_id", currentUser.id)
-    .order("id",{ascending:false});
+}
 
   list.innerHTML="";
 
