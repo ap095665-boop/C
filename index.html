@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick Sync</title>
+
+<style>
+body { margin:0; font-family:Arial; background:#0f172a; color:white; }
+
+/* HEADER */
+header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  background:#1e293b;
+}
+
+#userEmail {
+  font-size:12px;
+  max-width:140px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* LOGIN */
+#loginScreen {
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  gap:20px;
+}
+
+.login-btn {
+  background:#22c55e;
+  padding:12px 20px;
+  border-radius:10px;
+}
+
+/* LIST */
+.container { padding:10px; }
+
+/* CARD */
+.card {
+  background:#1e293b;
+  margin:10px 0;
+  padding:12px;
+  border-radius:15px;
+  position:relative;
+  animation:fadeIn 0.25s ease;
+  overflow:hidden;
+}
+
+@keyframes fadeIn {
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1;}
+}
+
+.card a, .card p {
+  word-break:break-word;
+  font-size:14px;
+  max-height:120px;
+  overflow:auto;
+}
+
+.card a { color:#38bdf8; }
+
+/* COPY */
+.copy-btn {
+  position:absolute;
+  top:8px;
+  right:10px;
+  font-size:10px;
+  background:#334155;
+  padding:3px 6px;
+  border-radius:5px;
+}
+
+/* FAB */
+.fab {
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:#22c55e;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:30px;
+}
+
+/* SKELETON */
+.skeleton {
+  height:60px;
+  background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%);
+  background-size:200%;
+  animation:shimmer 1.2s infinite;
+  border-radius:10px;
+  margin:10px 0;
+}
+
+@keyframes shimmer {
+  0%{background-position:-200%;}
+  100%{background-position:200%;}
+}
+
+/* TOAST */
+.toast {
+  position:fixed;
+  bottom:80px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#22c55e;
+  padding:8px 12px;
+  border-radius:8px;
+  font-size:13px;
+}
+
+/* SWIPE DELETE */
+.card.removing {
+  transition:0.3s;
+  transform:translateX(100%);
+  opacity:0;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loginScreen">
+  <h2>Quick Sync</h2>
+  <button class="login-btn" onclick="login()">Login with Google</button>
+</div>
+
+<div id="app" style="display:none;">
+<header>
+  <span id="userEmail"></span>
+  <button onclick="logout()">Logout</button>
+</header>
+
+<div id="list" class="container"></div>
+<div class="fab" onclick="addItem()">+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let channel = null;
+
+const loginScreen = document.getElementById("loginScreen");
+const app = document.getElementById("app");
+const userEmail = document.getElementById("userEmail");
+const list = document.getElementById("list");
+
+async function login() {
+  try {
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.href,
+        queryParams: {
+          prompt: "select_account"
+        }
+      }
+    });
+
+    if (error) alert(error.message);
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function logout() {
+  if (channel) {
+    client.removeChannel(channel);
+    channel = null;
+  }
+
+  await client.auth.signOut();
+
+  currentUser = null;
+
+  app.style.display = "none";
+  loginScreen.style.display = "flex";
+}
+
+async function restoreSession() {
+
+  const {
+    data: { session },
+    error
+  } = await client.auth.getSession();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  if (session) {
+    onLogin(session.user);
+  } else {
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+  }
+}
+
+client.auth.onAuthStateChange((event, session) => {
+
+  if (event === "SIGNED_IN" && session) {
+    onLogin(session.user);
+  }
+
+  if (event === "SIGNED_OUT") {
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+  }
+
+});
+
+function onLogin(user) {
+
+  currentUser = user;
+
+  loginScreen.style.display = "none";
+  app.style.display = "block";
+
+  userEmail.textContent = user.email;
+
+  loadData();
+
+  setupRealtime();
+
+}
+
+restoreSession();
+async function loadData() {
+
+    if (!currentUser) return;
+
+    list.innerHTML = `
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+    `;
+
+    const { data, error } = await client
+        .from("notes")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("id", { ascending: false });
+
+    if (error) {
+        list.innerHTML = "";
+        alert(error.message);
+        return;
+    }
+
+    list.innerHTML = "";
+
+    if (!data || data.length === 0) {
+        list.innerHTML =
+        "<center style='padding:40px;opacity:.7'>No data found</center>";
+        return;
+    }
+
+    data.forEach(renderCard);
+}
+
+function renderCard(item){
+
+    let t = item.content;
+let el;
+
+if (t.startsWith("http")) {
+    el = document.createElement("a");
+    el.href = t;
+    el.target = "_blank";
+    el.innerText = t;
+}
+else if (/^\+?\d{10,13}$/.test(t)) {
+    el = document.createElement("a");
+    el.href = "tel:" + t;
+    el.innerText = "📱 " + t;
+}
+else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) {
+    el = document.createElement("a");
+    el.href = "mailto:" + t;
+    el.innerText = "📧 " + t;
+}
+else if (/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")) {
+    el = document.createElement("a");
+    el.href = "upi://pay?pa=" + t;
+    el.innerText = "💸 " + t;
+}
+else {
+    el = document.createElement("p");
+
+    el.innerHTML = t
+        .replace(/(https?:\/\/[^\s]+)/g,
+            '<a href="$1" target="_blank">$1</a>')
+        .replace(/\b(\+?\d{10,13})\b/g,
+            '<a href="tel:$1">📱 $1</a>')
+        .replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,
+            '<a href="mailto:$1">📧 $1</a>')
+        .replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,
+            m => m.includes(".")
+                ? m
+                : `<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
+}
+
+card.appendChild(copy);
+card.appendChild(el);
+}
+
+async function addItem(){
+
+    if(!currentUser) return;
+
+    const value=prompt("Enter text");
+
+    if(!value) return;
+
+    const {error}=await client
+    .from("notes")
+    .insert([
+        {
+            content:value,
+            user_id:currentUser.id
+        }
+    ]);
+
+    if(error){
+        alert(error.message);
+        return;
+    }
+
+    loadData();
+
+}
+
+function setupRealtime(){
+
+    if(channel){
+        client.removeChannel(channel);
+    }
+
+    channel=client
+    .channel("notes-live")
+    .on(
+        "postgres_changes",
+        {
+            event:"*",
+            schema:"public",
+            table:"notes"
+        },
+        ()=>loadData()
+    )
+    .subscribe();
+
+}
+
+function showToast(msg){
+
+    const t=document.createElement("div");
+
+    t.className="toast";
+
+    t.innerText=msg;
+
+    document.body.appendChild(t);
+
+    setTimeout(()=>{
+        t.remove();
+    },1000);
+
+  }
+          
+</script>
+</body>
+</html>
