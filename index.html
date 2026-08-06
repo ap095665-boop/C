@@ -148,200 +148,250 @@ header {
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-
 const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
-const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
+let channel = null;
 
-/* LOGIN */
-async function login(){
-  await client.auth.signInWithOAuth({
-    provider:'google',
-    options:{
-      redirectTo:location.origin + location.pathname,
-      queryParams:{ prompt:'select_account' }
-    }
-  });
-}
+const loginScreen = document.getElementById("loginScreen");
+const app = document.getElementById("app");
+const userEmail = document.getElementById("userEmail");
+const list = document.getElementById("list");
 
-/* LOGOUT */
-async function logout(){
-  await client.auth.signOut();
-  currentUser=null;
-  showLogin();
-}
-
-/* INIT */
-async function init(){
-  const { data:{ session } } = await client.auth.getSession();
-
-  if(session) handleLogin(session.user);
-  else showLogin();
-
-  client.auth.onAuthStateChange((e,s)=>{
-    if(e==="SIGNED_IN") handleLogin(s.user);
-    if(e==="SIGNED_OUT") showLogin();
-  });
-}
-
-/* UI HANDLERS */
-function handleLogin(user){
-  currentUser=user;
-  alert(currentUser.id);
-  loginScreen.style.display="none";
-  app.style.display="block";
-  userEmail.innerText=user.email;
-  loadData();
-  setupRealtime();
-}
-
-function showLogin(){
-  loginScreen.style.display="flex";
-  app.style.display="none";
-}
-
-/* LOAD */
-async function loadData(){
-  const list=document.getElementById("list");
-
-  list.innerHTML=`<div class="skeleton"></div><div class="skeleton"></div>`;
-
-  if(!currentUser) return;
-
-  const { data, error } = await client
-  .from("notes")
-  .select("*")
-  .eq("user_id", currentUser.id)
-  .order("id", { ascending: false });
-
-if (error) {
-  alert(error.message);
-  return;
-}
-
-  list.innerHTML="";
-
-  if(!data.length){
-    list.innerHTML="No data";
-    return;
-  }
-
-  data.forEach(item=>{
-    const card=document.createElement("div");
-    card.className="card";
-
-    let t=item.content;
-    let el;
-
-    if(t.startsWith("http")){
-      el=document.createElement("a");
-      el.href=t;
-      el.target="_blank";
-      el.innerText=t;
-    }
-    else if(/^\+?\d{10,13}$/.test(t)){
-      el=document.createElement("a");
-      el.href="tel:"+t;
-      el.innerText="📱 "+t;
-    }
-    else if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)){
-      el=document.createElement("a");
-      el.href="mailto:"+t;
-      el.innerText="📧 "+t;
-    }
-    else if(/^[\w.-]+@[a-zA-Z]{2,}$/.test(t) && !t.includes(".")){
-      el=document.createElement("a");
-      el.href="upi://pay?pa="+t;
-      el.innerText="💸 "+t;
-    }
-    else{
-      el=document.createElement("p");
-      el.innerHTML=t
-        .replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank">$1</a>')
-        .replace(/\b(\+?\d{10,13})\b/g,'<a href="tel:$1">📱 $1</a>')
-        .replace(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/g,'<a href="mailto:$1">📧 $1</a>')
-        .replace(/\b([\w.-]+@[a-zA-Z]{2,})\b/g,m=>m.includes('.')?m:`<a href="upi://pay?pa=${m}">💸 ${m}</a>`);
-    }
-
-    const copy=document.createElement("div");
-    copy.className="copy-btn";
-    copy.innerText="Copy";
-    copy.onclick=(e)=>{
-      e.stopPropagation();
-      navigator.clipboard.writeText(t);
-      showToast("Copied!");
-    };
-
-    card.appendChild(copy);
-    card.appendChild(el);
-
-    /* SWIPE */
-    let startX=0;
-    card.addEventListener("touchstart",e=>{
-      startX=e.touches[0].clientX;
-    });
-
-    card.addEventListener("touchend",async e=>{
-      let diff=e.changedTouches[0].clientX-startX;
-
-      if(diff>120){
-        if(confirm("Delete this item?")){
-          card.classList.add("removing");
-          setTimeout(async()=>{
-            await client.from("notes").delete().eq("id",item.id);
-            card.remove();
-          },200);
+async function login() {
+  try {
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.href,
+        queryParams: {
+          prompt: "select_account"
         }
       }
     });
 
-    list.appendChild(card);
-  });
+    if (error) alert(error.message);
+
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
-/* ADD */
-async function addItem(){
-  let t=prompt("Enter text");
-  if(!t) return;
+async function logout() {
+  if (channel) {
+    client.removeChannel(channel);
+    channel = null;
+  }
 
-  await client.from("notes").insert([
-    {content:t,user_id:currentUser.id}
-  ]);
+  await client.auth.signOut();
+
+  currentUser = null;
+
+  app.style.display = "none";
+  loginScreen.style.display = "flex";
+}
+
+async function restoreSession() {
+
+  const {
+    data: { session },
+    error
+  } = await client.auth.getSession();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  if (session) {
+    onLogin(session.user);
+  } else {
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+  }
+}
+
+client.auth.onAuthStateChange((event, session) => {
+
+  if (event === "SIGNED_IN" && session) {
+    onLogin(session.user);
+  }
+
+  if (event === "SIGNED_OUT") {
+    loginScreen.style.display = "flex";
+    app.style.display = "none";
+  }
+
+});
+
+function onLogin(user) {
+
+  currentUser = user;
+
+  loginScreen.style.display = "none";
+  app.style.display = "block";
+
+  userEmail.textContent = user.email;
 
   loadData();
+
+  setupRealtime();
+
 }
 
-/* REALTIME */
-function setupRealtime(){
-  client.channel('notes')
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'notes'},loadData)
-  .on('postgres_changes',{event:'DELETE',schema:'public',table:'notes'},loadData)
-  .subscribe();
-}
+restoreSession();
+async function loadData() {
 
-/* TOAST */
-function showToast(msg){
-  const t=document.createElement("div");
-  t.className="toast";
-  t.innerText=msg;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),1000);
-}
+    if (!currentUser) return;
 
-init();
-async function login() {
-  const { data, error } = await client.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: location.origin + location.pathname,
-      queryParams: { prompt: "select_account" }
+    list.innerHTML = `
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+    `;
+
+    const { data, error } = await client
+        .from("notes")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("id", { ascending: false });
+
+    if (error) {
+        list.innerHTML = "";
+        alert(error.message);
+        return;
     }
-  });
 
-  alert(JSON.stringify({ data, error }));
+    list.innerHTML = "";
+
+    if (!data || data.length === 0) {
+        list.innerHTML =
+        "<center style='padding:40px;opacity:.7'>No data found</center>";
+        return;
+    }
+
+    data.forEach(renderCard);
 }
+
+function renderCard(item){
+
+    const card=document.createElement("div");
+    card.className="card";
+
+    const text=document.createElement("p");
+    text.textContent=item.content;
+
+    const copy=document.createElement("div");
+    copy.className="copy-btn";
+    copy.innerText="Copy";
+
+    copy.onclick=()=>{
+        navigator.clipboard.writeText(item.content);
+        showToast("Copied");
+    };
+
+    let startX=0;
+
+    card.addEventListener("touchstart",e=>{
+        startX=e.touches[0].clientX;
+    });
+
+    card.addEventListener("touchend",async e=>{
+
+        let diff=e.changedTouches[0].clientX-startX;
+
+        if(diff>120){
+
+            if(!confirm("Delete?")) return;
+
+            const {error}=await client
+            .from("notes")
+            .delete()
+            .eq("id",item.id);
+
+            if(error){
+                alert(error.message);
+                return;
+            }
+
+            loadData();
+
+        }
+
+    });
+
+    card.appendChild(copy);
+    card.appendChild(text);
+
+    list.appendChild(card);
+
+}
+
+async function addItem(){
+
+    if(!currentUser) return;
+
+    const value=prompt("Enter text");
+
+    if(!value) return;
+
+    const {error}=await client
+    .from("notes")
+    .insert([
+        {
+            content:value,
+            user_id:currentUser.id
+        }
+    ]);
+
+    if(error){
+        alert(error.message);
+        return;
+    }
+
+    loadData();
+
+}
+
+function setupRealtime(){
+
+    if(channel){
+        client.removeChannel(channel);
+    }
+
+    channel=client
+    .channel("notes-live")
+    .on(
+        "postgres_changes",
+        {
+            event:"*",
+            schema:"public",
+            table:"notes"
+        },
+        ()=>loadData()
+    )
+    .subscribe();
+
+}
+
+function showToast(msg){
+
+    const t=document.createElement("div");
+
+    t.className="toast";
+
+    t.innerText=msg;
+
+    document.body.appendChild(t);
+
+    setTimeout(()=>{
+        t.remove();
+    },1000);
+
+  }
+          
 </script>
 </body>
 </html>
