@@ -61,16 +61,84 @@ header{position:sticky;top:0;z-index:5;display:flex;justify-content:space-betwee
 const SUPABASE_URL = "https://bslelkeatmwdmfmoockm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImJzbGVsa2VhdG13ZG1mbW9vY2ttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTI0MjksImV4cCI6MjA5MDM2ODQyOX0.8PoBfDz9uYXqy1NTtODRSxSfHdVK3CG4QEvAzVYhodk";
 const STORAGE_BUCKET = "quick-sync-images";
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    flowType: "pkce",
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage
+  }
+});
 let currentUser=null, realtimeChannel=null, entriesCache=[], pendingImages=[null,null,null], editingItem=null;
 const loginScreen=document.getElementById("loginScreen"), app=document.getElementById("app"), list=document.getElementById("list"), userEmail=document.getElementById("userEmail");
 const editorOverlay=document.getElementById("editorOverlay"), detailOverlay=document.getElementById("detailOverlay"), entryFields=document.getElementById("entryFields"), imageGrid=document.getElementById("imageGrid");
 
-async function login(){const {error}=await client.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin+window.location.pathname,queryParams:{prompt:"select_account"}}});if(error)alert(error.message)}
-async function logout(){if(realtimeChannel){await client.removeChannel(realtimeChannel);realtimeChannel=null}await client.auth.signOut();currentUser=null;app.style.display="none";loginScreen.style.display="flex"}
-async function restoreSession(){const {data:{session},error}=await client.auth.getSession();if(error){alert(error.message);return}if(session)showApp(session.user)}
-function showApp(user){currentUser=user;loginScreen.style.display="none";app.style.display="block";userEmail.textContent=user.email||"";loadData();startRealtime()}
-client.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session)showApp(session.user);if(event==="SIGNED_OUT"){currentUser=null;app.style.display="none";loginScreen.style.display="flex"}});
+async function login(){
+  const redirectTo = window.location.origin + window.location.pathname;
+  const {error} = await client.auth.signInWithOAuth({
+    provider:"google",
+    options:{redirectTo, queryParams:{prompt:"select_account"}}
+  });
+  if(error) alert("Google login could not start: " + error.message);
+}
+async function logout(){
+  if(realtimeChannel){await client.removeChannel(realtimeChannel);realtimeChannel=null}
+  const {error}=await client.auth.signOut();
+  if(error){alert("Logout failed: "+error.message);return}
+  currentUser=null;app.style.display="none";loginScreen.style.display="flex";
+}
+let shownUserId = null;
+function showApp(user){
+  if(!user)return;
+  const isNewUser = shownUserId !== user.id;
+  currentUser=user;shownUserId=user.id;
+  loginScreen.style.display="none";app.style.display="block";userEmail.textContent=user.email||"Signed in";
+  if(isNewUser){loadData();startRealtime();}
+}
+function showLogin(){
+  currentUser=null;shownUserId=null;
+  app.style.display="none";loginScreen.style.display="flex";
+}
+client.auth.onAuthStateChange((event,session)=>{
+  if(session && session.user){
+    if(["INITIAL_SESSION","SIGNED_IN","TOKEN_REFRESHED","USER_UPDATED"].includes(event)) showApp(session.user);
+  }else if(event==="SIGNED_OUT"){
+    if(realtimeChannel){client.removeChannel(realtimeChannel);realtimeChannel=null;}
+    showLogin();
+  }
+});
+async function restoreSession(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error_description") || params.get("error");
+    if(oauthError){
+      history.replaceState({}, document.title, window.location.pathname);
+      alert("Google sign-in returned an error: " + oauthError);
+      showLogin();
+      return;
+    }
+    const code = params.get("code");
+    if(code){
+      const {error:exchangeError} = await client.auth.exchangeCodeForSession(code);
+      history.replaceState({}, document.title, window.location.pathname);
+      if(exchangeError){
+        console.error("OAuth code exchange failed:", exchangeError);
+        alert("Google login returned to the app, but the session could not be created: " + exchangeError.message + "\n\nPlease check that this exact page URL is listed in Supabase Authentication → URL Configuration.");
+        showLogin();
+        return;
+      }
+    }
+    const {data,error}=await client.auth.getSession();
+    if(error){console.error("Session restore failed:",error);alert("Could not restore your login session: "+error.message);showLogin();return;}
+    if(data.session) showApp(data.session.user);
+    else showLogin();
+  }catch(error){
+    console.error("Auth initialization failed:",error);
+    alert("Authentication initialization failed: "+(error.message||String(error)));
+    showLogin();
+  }
+}
 
 function parseNewEntry(item){try{const x=JSON.parse(item.content);if(x&&x.version===2&&Array.isArray(x.fields))return x}catch(e){}return null}
 async function loadData(){if(!currentUser)return;list.innerHTML='<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
